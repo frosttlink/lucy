@@ -26,9 +26,11 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	ListConversationsByUser(ctx context.Context, userID pgtype.UUID) ([]Conversation, error)
+	ListConversationsByUserAndSubject(ctx context.Context, arg ListConversationsByUserAndSubjectParams) ([]Conversation, error)
 	ListMemoriesByUser(ctx context.Context, userID pgtype.UUID) ([]Memory, error)
 	ListMessagesByConversation(ctx context.Context, conversationID pgtype.UUID) ([]Message, error)
 	SearchMemoriesByEmbedding(ctx context.Context, arg SearchMemoriesByEmbeddingParams) ([]SearchMemoriesByEmbeddingRow, error)
+	UpdateConversationSubject(ctx context.Context, arg UpdateConversationSubjectParams) (Conversation, error)
 	UpdateConversationTitle(ctx context.Context, arg UpdateConversationTitleParams) (Conversation, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }

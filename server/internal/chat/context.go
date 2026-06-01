@@ -30,13 +30,14 @@ type BuiltContext struct {
 	RelevantMemories []db.Memory
 }
 
-func (b *ContextBuilder) BuildWithHistory(ctx context.Context, userID string, history []db.Message, userMessage string, memories []db.Memory) *BuiltContext {
+func (b *ContextBuilder) BuildWithHistory(ctx context.Context, userID string, history []db.Message, userMessage string, memories []db.Memory, subject string) *BuiltContext {
 	messages := make([]llm.Message, 0)
 
-	// 1. System prompt
+	// 1. Subject-specific system prompt
+	prompt := personality.GetPrompt(subject)
 	messages = append(messages, llm.Message{
 		Role:    "system",
-		Content: personality.SystemPrompt,
+		Content: prompt,
 	})
 
 	// 2. Relevant memories as context

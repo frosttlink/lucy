@@ -217,19 +217,28 @@ const UserIDKey contextKey = "user_id"
 func Middleware(jwtManager *JWTManager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token := ""
+
+			// Try Authorization header first
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) == 2 && parts[0] == "Bearer" {
+					token = parts[1]
+				}
+			}
+
+			// Fallback to query param (for WebSocket connections)
+			if token == "" {
+				token = r.URL.Query().Get("token")
+			}
+
+			if token == "" {
+				http.Error(w, `{"error":"missing authorization token"}`, http.StatusUnauthorized)
 				return
 			}
 
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				http.Error(w, `{"error":"invalid authorization header"}`, http.StatusUnauthorized)
-				return
-			}
-
-			claims, err := jwtManager.ValidateToken(parts[1])
+			claims, err := jwtManager.ValidateToken(token)
 			if err != nil {
 				if strings.Contains(err.Error(), "expired") {
 					http.Error(w, `{"error":"token expired"}`, http.StatusUnauthorized)

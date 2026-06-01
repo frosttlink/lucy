@@ -12,18 +12,19 @@ import (
 )
 
 const createConversation = `-- name: CreateConversation :one
-INSERT INTO conversations (user_id, title)
-VALUES ($1, $2)
-RETURNING id, user_id, title, created_at, updated_at
+INSERT INTO conversations (user_id, title, subject)
+VALUES ($1, $2, $3)
+RETURNING id, user_id, title, created_at, updated_at, subject
 `
 
 type CreateConversationParams struct {
-	UserID pgtype.UUID `json:"user_id"`
-	Title  string      `json:"title"`
+	UserID  pgtype.UUID `json:"user_id"`
+	Title   string      `json:"title"`
+	Subject string      `json:"subject"`
 }
 
 func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error) {
-	row := q.db.QueryRow(ctx, createConversation, arg.UserID, arg.Title)
+	row := q.db.QueryRow(ctx, createConversation, arg.UserID, arg.Title, arg.Subject)
 	var i Conversation
 	err := row.Scan(
 		&i.ID,
@@ -31,6 +32,7 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.Title,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subject,
 	)
 	return i, err
 }
@@ -45,7 +47,7 @@ func (q *Queries) DeleteConversation(ctx context.Context, id pgtype.UUID) error 
 }
 
 const getConversationByID = `-- name: GetConversationByID :one
-SELECT id, user_id, title, created_at, updated_at FROM conversations WHERE id = $1
+SELECT id, user_id, title, created_at, updated_at, subject FROM conversations WHERE id = $1
 `
 
 func (q *Queries) GetConversationByID(ctx context.Context, id pgtype.UUID) (Conversation, error) {
@@ -57,12 +59,13 @@ func (q *Queries) GetConversationByID(ctx context.Context, id pgtype.UUID) (Conv
 		&i.Title,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subject,
 	)
 	return i, err
 }
 
 const listConversationsByUser = `-- name: ListConversationsByUser :many
-SELECT id, user_id, title, created_at, updated_at FROM conversations WHERE user_id = $1
+SELECT id, user_id, title, created_at, updated_at, subject FROM conversations WHERE user_id = $1
 ORDER BY updated_at DESC
 `
 
@@ -81,6 +84,7 @@ func (q *Queries) ListConversationsByUser(ctx context.Context, userID pgtype.UUI
 			&i.Title,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Subject,
 		); err != nil {
 			return nil, err
 		}
@@ -92,10 +96,72 @@ func (q *Queries) ListConversationsByUser(ctx context.Context, userID pgtype.UUI
 	return items, nil
 }
 
+const listConversationsByUserAndSubject = `-- name: ListConversationsByUserAndSubject :many
+SELECT id, user_id, title, created_at, updated_at, subject FROM conversations WHERE user_id = $1 AND subject = $2
+ORDER BY updated_at DESC
+`
+
+type ListConversationsByUserAndSubjectParams struct {
+	UserID  pgtype.UUID `json:"user_id"`
+	Subject string      `json:"subject"`
+}
+
+func (q *Queries) ListConversationsByUserAndSubject(ctx context.Context, arg ListConversationsByUserAndSubjectParams) ([]Conversation, error) {
+	rows, err := q.db.Query(ctx, listConversationsByUserAndSubject, arg.UserID, arg.Subject)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Conversation
+	for rows.Next() {
+		var i Conversation
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Subject,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateConversationSubject = `-- name: UpdateConversationSubject :one
+UPDATE conversations SET subject = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, user_id, title, created_at, updated_at, subject
+`
+
+type UpdateConversationSubjectParams struct {
+	ID      pgtype.UUID `json:"id"`
+	Subject string      `json:"subject"`
+}
+
+func (q *Queries) UpdateConversationSubject(ctx context.Context, arg UpdateConversationSubjectParams) (Conversation, error) {
+	row := q.db.QueryRow(ctx, updateConversationSubject, arg.ID, arg.Subject)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Subject,
+	)
+	return i, err
+}
+
 const updateConversationTitle = `-- name: UpdateConversationTitle :one
 UPDATE conversations SET title = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, user_id, title, created_at, updated_at
+RETURNING id, user_id, title, created_at, updated_at, subject
 `
 
 type UpdateConversationTitleParams struct {
@@ -112,6 +178,7 @@ func (q *Queries) UpdateConversationTitle(ctx context.Context, arg UpdateConvers
 		&i.Title,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subject,
 	)
 	return i, err
 }

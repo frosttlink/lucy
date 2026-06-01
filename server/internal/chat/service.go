@@ -38,6 +38,11 @@ func NewService(database *db.DB, llmClient *llm.Client, memorySvc *memory.Servic
 func (s *Service) HandleMessage(ctx context.Context, userID string, msg ws.ClientMessage) {
 	conversationID := msg.ConversationID
 	userMessage := msg.Content
+	subject := msg.Subject
+
+	if subject == "" {
+		subject = "general"
+	}
 
 	if conversationID == "" || userMessage == "" {
 		return
@@ -91,8 +96,8 @@ func (s *Service) HandleMessage(ctx context.Context, userID string, msg ws.Clien
 		})
 	}
 
-	// 5. Build context
-	context := s.contextBuilder.BuildWithHistory(ctx, userID, history, userMessage, memList)
+	// 5. Build context with subject
+	context := s.contextBuilder.BuildWithHistory(ctx, userID, history, userMessage, memList, subject)
 
 	// 6. Run LLM with tool loop
 	assistantContent, err := s.runLLMWithTools(ctx, conversationID, context)
@@ -169,7 +174,7 @@ func (s *Service) runLLMWithTools(ctx context.Context, conversationID string, co
 	return "", fmt.Errorf("too many tool call iterations")
 }
 
-func (s *Service) CreateConversation(ctx context.Context, userID, title string) (db.Conversation, error) {
+func (s *Service) CreateConversation(ctx context.Context, userID, title, subject string) (db.Conversation, error) {
 	userUUID, err := db.ParseUUID(userID)
 	if err != nil {
 		return db.Conversation{}, fmt.Errorf("invalid user id: %w", err)
@@ -177,9 +182,13 @@ func (s *Service) CreateConversation(ctx context.Context, userID, title string) 
 	if title == "" {
 		title = "New Conversation"
 	}
+	if subject == "" {
+		subject = "general"
+	}
 	result, err := s.db.CreateConversation(ctx, db.CreateConversationParams{
-		UserID: userUUID,
-		Title:  title,
+		UserID:  userUUID,
+		Title:   title,
+		Subject: subject,
 	})
 	if err != nil {
 		return db.Conversation{}, err
@@ -193,6 +202,17 @@ func (s *Service) ListConversations(ctx context.Context, userID string) ([]db.Co
 		return nil, fmt.Errorf("invalid user id: %w", err)
 	}
 	return s.db.ListConversationsByUser(ctx, userUUID)
+}
+
+func (s *Service) ListConversationsBySubject(ctx context.Context, userID, subject string) ([]db.Conversation, error) {
+	userUUID, err := db.ParseUUID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user id: %w", err)
+	}
+	return s.db.ListConversationsByUserAndSubject(ctx, db.ListConversationsByUserAndSubjectParams{
+		UserID:  userUUID,
+		Subject: subject,
+	})
 }
 
 func (s *Service) GetMessages(ctx context.Context, conversationID string) ([]db.Message, error) {

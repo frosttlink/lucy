@@ -22,6 +22,7 @@ type ClientMessage struct {
 	Type           string `json:"type"`
 	ConversationID string `json:"conversation_id,omitempty"`
 	Content        string `json:"content,omitempty"`
+	Subject        string `json:"subject,omitempty"`
 }
 
 type Hub struct {

@@ -152,7 +152,17 @@ func handleListConversations(svc *chat.Service) http.HandlerFunc {
 			return
 		}
 
-		convs, err := svc.ListConversations(r.Context(), userID)
+		subject := r.URL.Query().Get("subject")
+
+		var convs []db.Conversation
+		var err error
+
+		if subject != "" {
+			convs, err = svc.ListConversationsBySubject(r.Context(), userID, subject)
+		} else {
+			convs, err = svc.ListConversations(r.Context(), userID)
+		}
+
 		if err != nil {
 			http.Error(w, `{"error":"failed to list conversations"}`, http.StatusInternalServerError)
 			return
@@ -174,11 +184,12 @@ func handleCreateConversation(svc *chat.Service) http.HandlerFunc {
 		}
 
 		var req struct {
-			Title string `json:"title"`
+			Title   string `json:"title"`
+			Subject string `json:"subject"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
 
-		conv, err := svc.CreateConversation(r.Context(), userID, req.Title)
+		conv, err := svc.CreateConversation(r.Context(), userID, req.Title, req.Subject)
 		if err != nil {
 			http.Error(w, `{"error":"failed to create conversation"}`, http.StatusInternalServerError)
 			return
