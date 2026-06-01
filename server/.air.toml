@@ -1,0 +1,18 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/lucy ./cmd/api"
+  bin = "tmp/lucy"
+  delay = 1000
+  exclude_dir = ["tmp", "migrations"]
+  include_ext = ["go", "env"]
+  exclude_regex = [".*_test.go"]
+
+[log]
+  time = true
+
+[color]
+  app = "cyan"
+  build = "yellow"
+  runner = "green"

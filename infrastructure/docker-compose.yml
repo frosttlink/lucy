@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: lucy
+      POSTGRES_PASSWORD: lucy
+      POSTGRES_DB: lucy
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lucy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6378:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      DATABASE_URL: "postgres://lucy:lucy@postgres:5432/lucy?sslmode=disable"
+      JWT_SECRET: "dev-secret-change-in-production"
+      REDIS_URL: "redis://redis:6379/0"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+
+volumes:
+  pgdata:
