@@ -14,15 +14,21 @@ interface ConversationClients {
   [conversationId: string]: Set<WebSocket>
 }
 
+const HEARTBEAT_INTERVAL = 30_000
+const HEARTBEAT_TIMEOUT = 10_000
+
 export class WsHub {
   private clients: ConversationClients = {}
   private onMessageHandler: MessageHandler | null = null
+  private heartbeatTimers = new Map<WebSocket, NodeJS.Timeout>()
 
   onMessage(handler: MessageHandler) {
     this.onMessageHandler = handler
   }
 
   handleConnection(socket: WebSocket, userId: string) {
+    this.startHeartbeat(socket)
+
     socket.on('message', (raw: Buffer) => {
       try {
         const msg: ClientMessage = JSON.parse(raw.toString())
@@ -40,6 +46,7 @@ export class WsHub {
     })
 
     socket.on('close', () => {
+      this.stopHeartbeat(socket)
       for (const convId of Object.keys(this.clients)) {
         this.clients[convId].delete(socket)
         if (this.clients[convId].size === 0) {
@@ -49,8 +56,25 @@ export class WsHub {
     })
 
     socket.on('error', () => {
-      // cleanup handled by close
+      this.stopHeartbeat(socket)
     })
+  }
+
+  private startHeartbeat(socket: WebSocket) {
+    const timer = setInterval(() => {
+      if (socket.readyState === socket.OPEN) {
+        socket.ping()
+      }
+    }, HEARTBEAT_INTERVAL)
+    this.heartbeatTimers.set(socket, timer)
+  }
+
+  private stopHeartbeat(socket: WebSocket) {
+    const timer = this.heartbeatTimers.get(socket)
+    if (timer) {
+      clearInterval(timer)
+      this.heartbeatTimers.delete(socket)
+    }
   }
 
   sendToken(conversationId: string, token: string) {
@@ -76,8 +100,20 @@ export class WsHub {
   private broadcast(conversationId: string, msg: string) {
     const conns = this.clients[conversationId]
     if (!conns) return
+    const dead: WebSocket[] = []
     for (const conn of conns) {
-      conn.send(msg)
+      try {
+        if (conn.readyState === conn.OPEN) {
+          conn.send(msg)
+        } else {
+          dead.push(conn)
+        }
+      } catch {
+        dead.push(conn)
+      }
+    }
+    for (const conn of dead) {
+      conns.delete(conn)
     }
   }
 }

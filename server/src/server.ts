@@ -8,6 +8,7 @@ import {
 import { fastifySwagger } from '@fastify/swagger'
 import { fastifyCors } from '@fastify/cors'
 import { fastifyWebsocket } from '@fastify/websocket'
+import { fastifyRateLimit } from '@fastify/rate-limit'
 import ScalarApiReference from '@scalar/fastify-api-reference'
 import { env } from './env'
 import { health } from './routes/health'
@@ -18,6 +19,7 @@ import { getMe } from './routes/get-me'
 import { updateMe } from './routes/update-me'
 import { listConversations } from './routes/list-conversations'
 import { createConversation } from './routes/create-conversation'
+import { deleteConversation } from './routes/delete-conversation'
 import { getMessages } from './routes/get-messages'
 import { chatStream } from './routes/chat-stream'
 import { listMemories } from './routes/list-memories'
@@ -33,13 +35,32 @@ import { WeatherTool } from './lib/tools/weather'
 import { ChatService } from './services/chat'
 import { appContext } from './lib/app-context'
 
-const app = fastify().withTypeProvider<ZodTypeProvider>()
+const app = fastify({
+  logger: {
+    level: env.NODE_ENV === 'production' ? 'info' : 'debug',
+    transport:
+      env.NODE_ENV !== 'production'
+        ? { target: 'pino-pretty', options: { colorize: true } }
+        : undefined,
+  },
+}).withTypeProvider<ZodTypeProvider>()
 
 app.setValidatorCompiler(validatorCompiler)
 app.setSerializerCompiler(serializerCompiler)
 
-app.register(fastifyCors, { origin: true })
+// Rate limiting
+app.register(fastifyRateLimit, {
+  max: env.NODE_ENV === 'production' ? 100 : 1000,
+  timeWindow: '1 minute',
+})
 
+// CORS
+app.register(fastifyCors, {
+  origin: env.CORS_ORIGIN === '*' ? true : [env.CORS_ORIGIN],
+  credentials: true,
+})
+
+// Swagger
 app.register(fastifySwagger, {
   openapi: {
     info: {
@@ -58,10 +79,9 @@ app.register(fastifyWebsocket)
 
 // Initialize services
 const wsHub = new WsHub()
-
 const groqProvider = new GroqProvider(env.GROQ_API_KEY, env.GEMINI_API_KEY || '')
-
 const toolEngine = new Engine()
+
 toolEngine.register(new WebSearchTool())
 toolEngine.register(new CalculatorTool())
 toolEngine.register(new NotesTool())
@@ -74,7 +94,6 @@ wsHub.onMessage((userId, msg) => {
   chatService.handleMessage(userId, msg)
 })
 
-// Share instances globally
 appContext.wsHub = wsHub
 appContext.chatService = chatService
 
@@ -87,13 +106,24 @@ app.register(getMe)
 app.register(updateMe)
 app.register(listConversations)
 app.register(createConversation)
+app.register(deleteConversation)
 app.register(getMessages)
 app.register(chatStream)
 app.register(listMemories)
 app.register(deleteMemory)
 
+// Graceful shutdown
+const signals = ['SIGINT', 'SIGTERM'] as const
+for (const signal of signals) {
+  process.on(signal, async () => {
+    app.log.info({ signal }, 'Received signal, shutting down gracefully')
+    await app.close()
+    process.exit(0)
+  })
+}
+
 // Startup
 app.listen({ port: env.PORT, host: '0.0.0.0' }).then(() => {
-  console.log(`🔥 Lucy API running on http://localhost:${env.PORT}`)
-  console.log(`📚 Docs available at http://localhost:${env.PORT}/docs`)
+  app.log.info(`Lucy API running on http://localhost:${env.PORT}`)
+  app.log.info(`Docs available at http://localhost:${env.PORT}/docs`)
 })

@@ -1,4 +1,4 @@
-import { eq, desc, asc, sql } from 'drizzle-orm'
+import { eq, desc, asc, sql, and } from 'drizzle-orm'
 import { db } from '@/db'
 import { conversations, messages, memories } from '@/db/schema'
 import { GroqProvider } from '@/lib/llm/groq'
@@ -42,7 +42,7 @@ If the user wants to do something that requires a tool (search the web, save not
 const SUBJECT_PROMPTS: Record<string, string> = {
   general: 'You are a general-purpose tutor. Help the user with any topic they ask about.',
   portuguese:
-    'You are a Portuguese language tutor for Brazilian Ensino M\u00e9dio.\nHelp with grammar (concord\u00e2ncia, reg\u00eancia, crase, pontua\u00e7\u00e3o), text interpretation, and literary analysis.\nTeach the differences between varieties of Portuguese and focus on formal writing standards.\nAlways connect to ENEM style questions and suggest weekly reading exercises.',
+    'You are a Portuguese language tutor for Brazilian Ensino M\u00e9dio.\nHelp with grammar (concord\u00e2ncia, reg\u00e2ncia, crase, pontua\u00e7\u00e3o), text interpretation, and literary analysis.\nTeach the differences between varieties of Portuguese and focus on formal writing standards.\nAlways connect to ENEM style questions and suggest weekly reading exercises.',
   essay:
     'You are an essay writing tutor specialized in ENEM.\nYou help students structure dissertations, correct grammar,\nsuggest themes, and evaluate arguments based on ENEM criteria\n(5 competences: language proficiency, understanding the theme,\norganizing information, argumentation, and intervention proposal).\nAlways respect human rights when suggesting intervention proposals.\nProvide weekly writing prompts and model texts.',
   literature:
@@ -85,25 +85,32 @@ export class ChatService {
   async handleMessage(userId: string, msg: ClientMessage) {
     const conversationId = msg.conversation_id
     const userMessage = msg.content || ''
-    let subject = msg.subject || 'general'
+    const subject = msg.subject || 'general'
 
     if (!conversationId || !userMessage) return
 
-    // 1. Save user message
+    // Validate ownership
+    const owner = await this.getConversationOwner(conversationId)
+    if (!owner || owner !== userId) {
+      this.wsHub.sendError(conversationId, 'forbidden')
+      return
+    }
+
+    // Save user message
     await db.insert(messages).values({
       conversation_id: conversationId,
       role: 'user',
       content: userMessage,
     })
 
-    // 2. Get conversation history
+    // Get conversation history
     const history = await db
       .select()
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(asc(messages.createdAt))
 
-    // 3. Search relevant memories
+    // Search relevant memories (recency-based, vector search is future enhancement)
     const memRows = await db
       .select()
       .from(memories)
@@ -111,7 +118,7 @@ export class ChatService {
       .orderBy(desc(memories.createdAt))
       .limit(5)
 
-    // 4. Build LLM context
+    // Build LLM context
     const llmMessages: Message[] = []
 
     const subjectPrompt = SUBJECT_PROMPTS[subject] || SUBJECT_PROMPTS.general
@@ -131,7 +138,7 @@ export class ChatService {
 
     llmMessages.push({ role: 'user', content: userMessage })
 
-    // 5. Run LLM with tool loop
+    // Run LLM with tool loop
     const toolDefs = this.toolEngine.definitionsForLLM()
     const maxIterations = 5
 
@@ -164,14 +171,14 @@ export class ChatService {
         }
       }
 
-      // 6. Save assistant message
+      // Save assistant message
       await db.insert(messages).values({
         conversation_id: conversationId,
         role: 'assistant',
         content: response.content,
       })
 
-      // 7. Save to memory (if substantial)
+      // Save to memory (if substantial)
       const combined = userMessage + ' ' + response.content
       if (combined.split(/\s+/).length >= 10) {
         await db.insert(memories).values({
@@ -182,7 +189,6 @@ export class ChatService {
         })
       }
 
-      // 8. Send done
       this.wsHub.sendDone(conversationId)
       return
     }
@@ -202,9 +208,7 @@ export class ChatService {
     return db
       .select()
       .from(conversations)
-      .where(
-        sql`${conversations.userId} = ${userId} AND ${conversations.subject} = ${subject}`,
-      )
+      .where(and(eq(conversations.userId, userId), eq(conversations.subject, subject)))
       .orderBy(desc(conversations.createdAt))
   }
 
@@ -220,12 +224,22 @@ export class ChatService {
     return conv
   }
 
-  async getMessages(conversationId: string) {
+  async deleteConversation(userId: string, conversationId: string) {
+    const owner = await this.getConversationOwner(conversationId)
+    if (!owner || owner !== userId) return false
+
+    await db.delete(conversations).where(eq(conversations.id, conversationId))
+    return true
+  }
+
+  async getMessages(conversationId: string, limit = 100, offset = 0) {
     return db
       .select()
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(asc(messages.createdAt))
+      .limit(limit)
+      .offset(offset)
   }
 
   async getConversationOwner(conversationId: string) {
@@ -237,5 +251,3 @@ export class ChatService {
     return conv?.userId || null
   }
 }
-
-
