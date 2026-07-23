@@ -8,7 +8,8 @@ export class ChatSocket {
   private conversationId: string
   private handlers: Set<EventHandler> = new Set()
   private reconnectAttempts = 0
-  private maxReconnect = 3
+  private maxReconnect = 5
+  private shouldReconnect = true
 
   constructor(conversationId: string) {
     this.conversationId = conversationId
@@ -21,7 +22,7 @@ export class ChatSocket {
     const baseUrl =
       import.meta.env.VITE_WS_URL ||
       import.meta.env.VITE_API_URL?.replace(/^http/, "ws") ||
-      "ws://localhost:8080"
+      "ws://localhost:3333"
 
     this.ws = new WebSocket(
       `${baseUrl}/api/chat/conversations/${this.conversationId}/stream?token=${token}`,
@@ -44,10 +45,15 @@ export class ChatSocket {
       this.cleanup()
     }
 
-    this.ws.onclose = () => {
-      if (this.reconnectAttempts < this.maxReconnect) {
+    this.ws.onclose = (event) => {
+      // Don't reconnect on auth errors
+      if (event.code === 4001 || event.code === 4002 || event.code === 4003) {
+        return
+      }
+      if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnect) {
         this.reconnectAttempts++
-        setTimeout(() => this.connect(), 1000 * this.reconnectAttempts)
+        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000)
+        setTimeout(() => this.connect(), delay)
       }
     }
   }
@@ -69,7 +75,7 @@ export class ChatSocket {
   }
 
   disconnect() {
-    this.maxReconnect = 0
+    this.shouldReconnect = false
     this.cleanup()
   }
 

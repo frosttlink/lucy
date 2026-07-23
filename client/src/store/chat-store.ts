@@ -11,6 +11,7 @@ interface ChatState {
   setActiveConversation: (id: string | null) => void
   setConversations: (convs: Conversation[]) => void
   addConversation: (conv: Conversation) => void
+  removeConversation: (id: string) => void
   setIsStreaming: (v: boolean) => void
   titleForCurrentSubject: () => string
 }
@@ -29,6 +30,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   addConversation: (conv) =>
     set((state) => ({ conversations: [conv, ...state.conversations] })),
+
+  removeConversation: (id) =>
+    set((state) => ({
+      conversations: state.conversations.filter((c) => c.id !== id),
+      activeConversationId:
+        state.activeConversationId === id ? null : state.activeConversationId,
+    })),
 
   setIsStreaming: (v) => set({ isStreaming: v }),
 

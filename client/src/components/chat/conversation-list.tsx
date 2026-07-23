@@ -1,13 +1,22 @@
 import { useChatStore } from "@/store/chat-store"
 import { useConversations } from "@/hooks/use-conversations"
 import { cn } from "@/lib/utils"
-import { MessageSquarePlus } from "lucide-react"
+import { MessageSquarePlus, Trash2 } from "lucide-react"
 
 export function ConversationList() {
   const conversations = useChatStore((s) => s.conversations)
   const activeConversationId = useChatStore((s) => s.activeConversationId)
   const setActiveConversation = useChatStore((s) => s.setActiveConversation)
-  const { createConversation } = useConversations()
+  const { createConversation, deleteConversation } = useConversations()
+
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation()
+    try {
+      await deleteConversation(id)
+    } catch {
+      // silently handle
+    }
+  }
 
   return (
     <div className="space-y-1">
@@ -28,13 +37,20 @@ export function ConversationList() {
           key={conv.id}
           onClick={() => setActiveConversation(conv.id)}
           className={cn(
-            "flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm transition-colors cursor-pointer text-left",
+            "group flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm transition-colors cursor-pointer text-left",
             activeConversationId === conv.id
               ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
               : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
           )}
         >
-          <span className="truncate">{conv.title}</span>
+          <span className="truncate flex-1">{conv.title}</span>
+          <button
+            onClick={(e) => handleDelete(e, conv.id)}
+            className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-opacity"
+            title="Deletar conversa"
+          >
+            <Trash2 className="size-3" />
+          </button>
         </button>
       ))}
     </div>

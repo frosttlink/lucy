@@ -10,6 +10,7 @@ export function useConversations() {
     activeConversationId,
     setConversations,
     addConversation,
+    removeConversation,
     setActiveConversation,
   } = useChatStore()
 
@@ -35,11 +36,20 @@ export function useConversations() {
     return conv
   }, [addConversation, setActiveConversation])
 
+  const deleteConversation = useCallback(
+    async (id: string) => {
+      await api.deleteConversation(id)
+      removeConversation(id)
+    },
+    [removeConversation],
+  )
+
   return {
     conversations,
     activeConversationId,
     fetchConversations,
     createConversation,
+    deleteConversation,
     setActiveConversation,
   }
 }

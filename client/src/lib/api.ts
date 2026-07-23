@@ -1,6 +1,6 @@
 import type { AuthResponse, Conversation, Message, Memory } from "@/types"
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080"
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3333"
 
 let accessToken: string | null = localStorage.getItem("access_token")
 let refreshToken: string | null = localStorage.getItem("refresh_token")
@@ -110,6 +110,10 @@ export function createConversation(title: string, subject: string) {
     title,
     subject,
   })
+}
+
+export function deleteConversation(id: string) {
+  return request<{ message: string }>("DELETE", `/api/chat/conversations/${id}`)
 }
 
 export function getMessages(conversationId: string) {
