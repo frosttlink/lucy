@@ -28,6 +28,25 @@ jobs:
         run: npx biome format --check src/
         working-directory: server
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Test client
+        run: |
+          npm install
+          npm test
+        working-directory: client
+      - name: Test server
+        run: |
+          npm install
+          npm test
+        working-directory: server
+
   build:
     name: Build
     runs-on: ubuntu-latest
