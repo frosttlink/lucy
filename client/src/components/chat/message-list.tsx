@@ -1,4 +1,7 @@
 import { useEffect, useRef } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import remarkBreaks from "remark-breaks"
 import type { Message } from "@/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
@@ -50,7 +53,15 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
                   : "bg-card border border-border rounded-bl-md",
               )}
             >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+              {msg.role === "user" ? (
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              ) : (
+                <div className="markdown-content">
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         ))}

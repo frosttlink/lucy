@@ -7,7 +7,6 @@ import {
 } from "lucide-react"
 import { useChatStore } from "@/store/chat-store"
 import { useConversations } from "@/hooks/use-conversations"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { SUBJECT_GROUPS } from "@/lib/subjects"
 

@@ -1,6 +1,7 @@
 import { useCallback } from "react"
 import { useChatStore } from "@/store/chat-store"
 import * as api from "@/lib/api"
+import { getSubjectById } from "@/lib/subjects"
 
 export function useConversations() {
   const {
@@ -23,9 +24,10 @@ export function useConversations() {
 
   const createConversation = useCallback(async () => {
     const subject = useChatStore.getState().activeSubject
-    const s = subject === "general" ? "Geral" : subject
+    const found = getSubjectById(subject)
+    const label = found?.label ?? "Geral"
     const conv = await api.createConversation(
-      `Nova conversa - ${s}`,
+      `Nova conversa - ${label}`,
       subject,
     )
     addConversation(conv)

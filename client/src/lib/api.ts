@@ -85,7 +85,7 @@ async function refreshAccessToken(): Promise<boolean> {
 
 // Auth
 export function register(email: string, password: string, name: string) {
-  return request<AuthResponse>("/auth/register", "", {
+  return request<AuthResponse>("POST", "/auth/register", {
     email,
     password,
     name,
@@ -93,7 +93,7 @@ export function register(email: string, password: string, name: string) {
 }
 
 export function login(email: string, password: string) {
-  return request<AuthResponse>("/auth/login", "", {
+  return request<AuthResponse>("POST", "/auth/login", {
     email,
     password,
   })

@@ -1,5 +1,4 @@
 import { useAuth } from "@/hooks/use-auth"
-import { useAuthStore } from "@/store/auth-store"
 import { useChatStore } from "@/store/chat-store"
 import { SubjectNav } from "@/components/subjects/subject-nav"
 import { ConversationList } from "@/components/chat/conversation-list"
@@ -12,7 +11,6 @@ import { Sparkles, LogOut } from "lucide-react"
 export function Sidebar() {
   const { user, logout } = useAuth()
   const title = useChatStore((s) => s.titleForCurrentSubject())
-  const activeSubject = useChatStore((s) => s.activeSubject)
 
   return (
     <aside className="w-72 shrink-0 border-r border-border bg-sidebar flex flex-col">

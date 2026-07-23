@@ -1,0 +1,99 @@
+import { fastify } from 'fastify'
+import {
+  serializerCompiler,
+  validatorCompiler,
+  jsonSchemaTransform,
+  type ZodTypeProvider,
+} from 'fastify-type-provider-zod'
+import { fastifySwagger } from '@fastify/swagger'
+import { fastifyCors } from '@fastify/cors'
+import { fastifyWebsocket } from '@fastify/websocket'
+import ScalarApiReference from '@scalar/fastify-api-reference'
+import { env } from './env'
+import { health } from './routes/health'
+import { authRegister } from './routes/auth-register'
+import { authLogin } from './routes/auth-login'
+import { authRefresh } from './routes/auth-refresh'
+import { getMe } from './routes/get-me'
+import { updateMe } from './routes/update-me'
+import { listConversations } from './routes/list-conversations'
+import { createConversation } from './routes/create-conversation'
+import { getMessages } from './routes/get-messages'
+import { chatStream } from './routes/chat-stream'
+import { listMemories } from './routes/list-memories'
+import { deleteMemory } from './routes/delete-memory'
+import { WsHub } from './lib/ws'
+import { GroqProvider } from './lib/llm/groq'
+import { Engine } from './lib/tools/engine'
+import { WebSearchTool } from './lib/tools/websearch'
+import { CalculatorTool } from './lib/tools/calculator'
+import { NotesTool } from './lib/tools/notes'
+import { TasksTool } from './lib/tools/tasks'
+import { WeatherTool } from './lib/tools/weather'
+import { ChatService } from './services/chat'
+import { appContext } from './lib/app-context'
+
+const app = fastify().withTypeProvider<ZodTypeProvider>()
+
+app.setValidatorCompiler(validatorCompiler)
+app.setSerializerCompiler(serializerCompiler)
+
+app.register(fastifyCors, { origin: true })
+
+app.register(fastifySwagger, {
+  openapi: {
+    info: {
+      title: 'Lucy API',
+      description: 'AI tutoring assistant for ENEM preparation',
+      version: '1.0.0',
+    },
+  },
+  transform: jsonSchemaTransform,
+})
+
+app.register(ScalarApiReference, { routePrefix: '/docs' })
+
+// WebSocket
+app.register(fastifyWebsocket)
+
+// Initialize services
+const wsHub = new WsHub()
+
+const groqProvider = new GroqProvider(env.GROQ_API_KEY, env.GEMINI_API_KEY || '')
+
+const toolEngine = new Engine()
+toolEngine.register(new WebSearchTool())
+toolEngine.register(new CalculatorTool())
+toolEngine.register(new NotesTool())
+toolEngine.register(new TasksTool())
+toolEngine.register(new WeatherTool())
+
+const chatService = new ChatService(groqProvider, toolEngine, wsHub)
+
+wsHub.onMessage((userId, msg) => {
+  chatService.handleMessage(userId, msg)
+})
+
+// Share instances globally
+appContext.wsHub = wsHub
+appContext.chatService = chatService
+
+// Routes
+app.register(health)
+app.register(authRegister)
+app.register(authLogin)
+app.register(authRefresh)
+app.register(getMe)
+app.register(updateMe)
+app.register(listConversations)
+app.register(createConversation)
+app.register(getMessages)
+app.register(chatStream)
+app.register(listMemories)
+app.register(deleteMemory)
+
+// Startup
+app.listen({ port: env.PORT, host: '0.0.0.0' }).then(() => {
+  console.log(`🔥 Lucy API running on http://localhost:${env.PORT}`)
+  console.log(`📚 Docs available at http://localhost:${env.PORT}/docs`)
+})

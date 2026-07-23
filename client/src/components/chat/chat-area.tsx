@@ -1,6 +1,5 @@
 import { useEffect } from "react"
 import { useChatStore } from "@/store/chat-store"
-import { useConversations } from "@/hooks/use-conversations"
 import { useChat } from "@/hooks/use-chat"
 import { getSubjectById } from "@/lib/subjects"
 import { MessageList } from "@/components/chat/message-list"
@@ -13,7 +12,6 @@ export function ChatArea() {
   const activeConversationId = useChatStore((s) => s.activeConversationId)
   const isStreaming = useChatStore((s) => s.isStreaming)
   const setIsStreaming = useChatStore((s) => s.setIsStreaming)
-  const { fetchConversations } = useConversations()
   const { messages, connect, sendMessage, disconnect, loadMessages, clearMessages } = useChat()
   const subject = getSubjectById(activeSubject)
 

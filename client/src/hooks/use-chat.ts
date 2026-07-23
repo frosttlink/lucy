@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from "react"
 import { ChatSocket } from "@/lib/ws"
+import { useChatStore } from "@/store/chat-store"
 import type { Message, WSIncomingEvent } from "@/types"
 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([])
-  const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const socketRef = useRef<ChatSocket | null>(null)
   const streamContentRef = useRef("")
@@ -43,7 +43,7 @@ export function useChat() {
           break
         }
         case "done": {
-          setIsStreaming(false)
+          useChatStore.getState().setIsStreaming(false)
           streamContentRef.current = ""
           break
         }
@@ -52,14 +52,14 @@ export function useChat() {
         }
         case "error": {
           setError(event.error || "Erro desconhecido")
-          setIsStreaming(false)
+          useChatStore.getState().setIsStreaming(false)
           break
         }
       }
     })
 
     socket.connect()
-    setIsStreaming(true)
+    useChatStore.getState().setIsStreaming(true)
     setError(null)
   }, [])
 
@@ -86,7 +86,7 @@ export function useChat() {
   const disconnect = useCallback(() => {
     socketRef.current?.disconnect()
     socketRef.current = null
-    setIsStreaming(false)
+    useChatStore.getState().setIsStreaming(false)
   }, [])
 
   const loadMessages = useCallback((msgs: Message[]) => {
@@ -101,7 +101,6 @@ export function useChat() {
 
   return {
     messages,
-    isStreaming,
     error,
     connect,
     sendMessage,
