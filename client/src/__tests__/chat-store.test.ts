@@ -32,11 +32,11 @@ describe('chatStore', () => {
   it('adds conversation', () => {
     const conv = {
       id: 'conv-1',
-      userId: 'user-1',
+      user_id: 'user-1',
       title: 'Test',
       subject: 'math',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
     useChatStore.getState().addConversation(conv)
     expect(useChatStore.getState().conversations).toHaveLength(1)
@@ -45,11 +45,11 @@ describe('chatStore', () => {
   it('removes conversation', () => {
     const conv = {
       id: 'conv-1',
-      userId: 'user-1',
+      user_id: 'user-1',
       title: 'Test',
       subject: 'math',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
     useChatStore.getState().addConversation(conv)
     useChatStore.getState().removeConversation('conv-1')
@@ -59,11 +59,11 @@ describe('chatStore', () => {
   it('clears active conversation when removed', () => {
     const conv = {
       id: 'conv-1',
-      userId: 'user-1',
+      user_id: 'user-1',
       title: 'Test',
       subject: 'math',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
     useChatStore.getState().addConversation(conv)
     useChatStore.getState().setActiveConversation('conv-1')

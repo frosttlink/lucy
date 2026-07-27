@@ -1,0 +1,36 @@
+import { defineConfig } from 'tsup'
+
+export default defineConfig({
+  entry: ['src/server.ts'],
+  format: ['esm'],
+  target: 'node22',
+  outDir: 'dist',
+  clean: true,
+  splitting: false,
+  bundle: true,
+  platform: 'node',
+  sourcemap: true,
+  define: {
+    'import.meta.dirname': '__dirname',
+  },
+  external: [
+    'bcryptjs',
+    'cheerio',
+    'drizzle-orm',
+    'drizzle-kit',
+    'fastify',
+    '@fastify/cors',
+    '@fastify/rate-limit',
+    '@fastify/swagger',
+    '@fastify/websocket',
+    '@scalar/fastify-api-reference',
+    'fastify-type-provider-zod',
+    'jsonwebtoken',
+    'pg',
+    'pino',
+    'pino-pretty',
+    'uuidv7',
+    'zod',
+    'drizzle-zod',
+  ],
+})
