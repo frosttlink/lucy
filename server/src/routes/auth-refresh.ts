@@ -50,9 +50,9 @@ export const authRefresh: FastifyPluginAsyncZod = async (app) => {
 
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       await db.insert(sessions).values({
-        user_id: payload.user_id,
-        refresh_token: newRefreshToken,
-        expires_at: expiresAt,
+        userId: payload.user_id,
+        refreshToken: newRefreshToken,
+        expiresAt,
       })
 
       return { access_token: accessToken, refresh_token: newRefreshToken }

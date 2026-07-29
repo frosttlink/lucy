@@ -48,7 +48,7 @@ export const authRegister: FastifyPluginAsyncZod = async (app) => {
 
       const [user] = await db
         .insert(users)
-        .values({ email, name, password_hash: passwordHash })
+        .values({ email, name, passwordHash })
         .returning()
 
       const accessToken = signAccessToken(user.id)
@@ -56,9 +56,9 @@ export const authRegister: FastifyPluginAsyncZod = async (app) => {
 
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       await db.insert(sessions).values({
-        user_id: user.id,
-        refresh_token: refreshToken,
-        expires_at: expiresAt,
+        userId: user.id,
+        refreshToken,
+        expiresAt,
       })
 
       return reply.status(201).send({

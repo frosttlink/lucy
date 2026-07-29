@@ -36,7 +36,7 @@ export const createConversation: FastifyPluginAsyncZod = async (app) => {
       const [conv] = await db
         .insert(conversations)
         .values({
-          user_id: userId,
+          userId,
           title: title || 'New Conversation',
           subject: subject || 'general',
         })

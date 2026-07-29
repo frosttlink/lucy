@@ -45,11 +45,12 @@ export const voice: FastifyPluginAsyncZod = async (app) => {
     }
 
     if (!conversationId) {
+      const title = text.length > 2 ? `Voice - ${text.slice(0, 40).replace(/[\n\r]/g, ' ')}` : 'Voice'
       const [conv] = await db
         .insert(conversations)
         .values({
-          user_id: userId,
-          title: `Voice - ${text.slice(0, 40).replace(/[\n\r]/g, ' ')}`,
+          userId,
+          title,
           subject,
         })
         .returning()

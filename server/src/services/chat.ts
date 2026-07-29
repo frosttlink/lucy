@@ -152,7 +152,7 @@ export class ChatService {
 
       if (response.content) {
         await db.insert(messages).values({
-          conversation_id: conversationId,
+          conversationId,
           role: 'assistant',
           content: response.content,
         })
@@ -160,7 +160,7 @@ export class ChatService {
         const combined = `${text} ${response.content}`
         if (combined.split(/\s+/).length >= 10) {
           await db.insert(memories).values({
-            user_id: userId,
+            userId,
             content: combined,
             type: 'short',
             metadata: { saved_at: new Date().toISOString() },
@@ -188,7 +188,7 @@ export class ChatService {
     }
 
     await db.insert(messages).values({
-      conversation_id: conversationId,
+      conversationId,
       role: 'user',
       content: userMessage,
     })
@@ -224,7 +224,7 @@ export class ChatService {
     }
 
     await db.insert(messages).values({
-      conversation_id: conversationId,
+      conversationId,
       role: 'user',
       content: text,
     })
@@ -257,7 +257,7 @@ export class ChatService {
     const [conv] = await db
       .insert(conversations)
       .values({
-        user_id: userId,
+        userId,
         title: title || 'New Conversation',
         subject: subject || 'general',
       })
