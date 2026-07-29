@@ -1,11 +1,10 @@
-import { eq, desc, asc, sql, and } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { conversations, messages, memories } from '@/db/schema'
-import { GroqProvider } from '@/lib/llm/groq'
-import { type ToolCall, type Message } from '@/lib/llm/types'
-import { Engine } from '@/lib/tools/engine'
-import { env } from '@/env'
-import type { WsHub, ClientMessage } from '@/lib/ws'
+import { conversations, memories, messages } from '@/db/schema'
+import type { GroqProvider } from '@/lib/llm/groq'
+import type { Message } from '@/lib/llm/types'
+import type { Engine } from '@/lib/tools/engine'
+import type { ClientMessage, WsHub } from '@/lib/ws'
 
 const SYSTEM_PROMPT = `You are Lucy, an intelligent, natural, and friendly virtual assistant.
 
@@ -40,7 +39,8 @@ When you need more information to help the user, ask follow-up questions natural
 If the user wants to do something that requires a tool (search the web, save notes, create tasks, calculate something, or check weather), use the available tools. Don't mention the tools explicitly to the user — just do what's needed.`
 
 const SUBJECT_PROMPTS: Record<string, string> = {
-  general: 'You are a general-purpose tutor. Help the user with any topic they ask about.',
+  general:
+    'You are a general-purpose tutor. Help the user with any topic they ask about.',
   portuguese:
     'You are a Portuguese language tutor for Brazilian Ensino M\u00e9dio.\nHelp with grammar (concord\u00e2ncia, reg\u00e2ncia, crase, pontua\u00e7\u00e3o), text interpretation, and literary analysis.\nTeach the differences between varieties of Portuguese and focus on formal writing standards.\nAlways connect to ENEM style questions and suggest weekly reading exercises.',
   essay:
@@ -68,7 +68,7 @@ const SUBJECT_PROMPTS: Record<string, string> = {
     'You are a philosophy tutor for Brazilian Ensino M\u00e9dio.\nCover history of philosophy (ancient, medieval, modern, contemporary), ethics, logic, epistemology, and political philosophy.\nEncourage critical thinking and argumentation.\nConnect philosophical concepts to everyday life and ENEM exam requirements.\nSuggest weekly readings from primary sources.',
   'current-affairs':
     'You are a current affairs tutor for Brazilian Ensino M\u00e9dio.\nCover national and international news, politics, economics, environment, science, and culture.\nAnalyze current events through a critical lens, connecting them to ENEM themes.\nUse the web_search tool to find and discuss the latest news.\nSuggest weekly topics for staying informed and practicing text interpretation.',
-  enem: 'You are an ENEM exam preparation tutor.\nYou cover ALL subjects: languages, mathematics, natural sciences, and human sciences.\nGenerate ENEM-style questions with detailed reasoning for each answer.\nTeach test-taking strategies, time management, and stress reduction techniques.\nHelp with essay writing based on the 5 competences.\nProvide weekly study plans that balance all subject areas.\nUse the web_search tool to find current ENEM news, templates, and practice materials.\nAlways suggest a weekly study roadmap based on the student\'s progress.',
+  enem: "You are an ENEM exam preparation tutor.\nYou cover ALL subjects: languages, mathematics, natural sciences, and human sciences.\nGenerate ENEM-style questions with detailed reasoning for each answer.\nTeach test-taking strategies, time management, and stress reduction techniques.\nHelp with essay writing based on the 5 competences.\nProvide weekly study plans that balance all subject areas.\nUse the web_search tool to find current ENEM news, templates, and practice materials.\nAlways suggest a weekly study roadmap based on the student's progress.",
 }
 
 export class ChatService {
@@ -82,35 +82,18 @@ export class ChatService {
     this.wsHub = wsHub
   }
 
-  async handleMessage(userId: string, msg: ClientMessage) {
-    const conversationId = msg.conversation_id
-    const userMessage = msg.content || ''
-    const subject = msg.subject || 'general'
-
-    if (!conversationId || !userMessage) return
-
-    // Validate ownership
-    const owner = await this.getConversationOwner(conversationId)
-    if (!owner || owner !== userId) {
-      this.wsHub.sendError(conversationId, 'forbidden')
-      return
-    }
-
-    // Save user message
-    await db.insert(messages).values({
-      conversation_id: conversationId,
-      role: 'user',
-      content: userMessage,
-    })
-
-    // Get conversation history
+  private async generateResponse(
+    userId: string,
+    text: string,
+    conversationId: string,
+    subject: string,
+  ): Promise<string> {
     const history = await db
       .select()
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(asc(messages.createdAt))
 
-    // Search relevant memories (recency-based, vector search is future enhancement)
     const memRows = await db
       .select()
       .from(memories)
@@ -118,11 +101,13 @@ export class ChatService {
       .orderBy(desc(memories.createdAt))
       .limit(5)
 
-    // Build LLM context
     const llmMessages: Message[] = []
 
     const subjectPrompt = SUBJECT_PROMPTS[subject] || SUBJECT_PROMPTS.general
-    llmMessages.push({ role: 'system', content: subjectPrompt + '\n\n' + SYSTEM_PROMPT })
+    llmMessages.push({
+      role: 'system',
+      content: `${subjectPrompt}\n\n${SYSTEM_PROMPT}`,
+    })
 
     if (memRows.length > 0) {
       const memContext =
@@ -133,12 +118,14 @@ export class ChatService {
 
     const start = Math.max(0, history.length - 30)
     for (const h of history.slice(start)) {
-      llmMessages.push({ role: h.role as 'user' | 'assistant', content: h.content })
+      llmMessages.push({
+        role: h.role as 'user' | 'assistant',
+        content: h.content,
+      })
     }
 
-    llmMessages.push({ role: 'user', content: userMessage })
+    llmMessages.push({ role: 'user', content: text })
 
-    // Run LLM with tool loop
     const toolDefs = this.toolEngine.definitionsForLLM()
     const maxIterations = 5
 
@@ -154,7 +141,6 @@ export class ChatService {
 
         for (const tc of response.tool_calls) {
           const result = await this.toolEngine.execute(tc.name, tc.input)
-          this.wsHub.sendToolCall(conversationId, [tc])
           llmMessages.push({
             role: 'tool',
             tool_call_id: tc.id,
@@ -165,35 +151,85 @@ export class ChatService {
       }
 
       if (response.content) {
-        const words = response.content.split(/\s+/)
-        for (const word of words) {
-          this.wsHub.sendToken(conversationId, word + ' ')
-        }
-      }
-
-      // Save assistant message
-      await db.insert(messages).values({
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: response.content,
-      })
-
-      // Save to memory (if substantial)
-      const combined = userMessage + ' ' + response.content
-      if (combined.split(/\s+/).length >= 10) {
-        await db.insert(memories).values({
-          user_id: userId,
-          content: combined,
-          type: 'short',
-          metadata: { saved_at: new Date().toISOString() },
+        await db.insert(messages).values({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: response.content,
         })
-      }
 
-      this.wsHub.sendDone(conversationId)
+        const combined = `${text} ${response.content}`
+        if (combined.split(/\s+/).length >= 10) {
+          await db.insert(memories).values({
+            user_id: userId,
+            content: combined,
+            type: 'short',
+            metadata: { saved_at: new Date().toISOString() },
+          })
+        }
+
+        return response.content
+      }
+    }
+
+    throw new Error('Too many tool call iterations')
+  }
+
+  async handleMessage(userId: string, msg: ClientMessage) {
+    const conversationId = msg.conversation_id
+    const userMessage = msg.content || ''
+    const subject = msg.subject || 'general'
+
+    if (!conversationId || !userMessage) return
+
+    const owner = await this.getConversationOwner(conversationId)
+    if (!owner || owner !== userId) {
+      this.wsHub.sendError(conversationId, 'forbidden')
       return
     }
 
-    this.wsHub.sendError(conversationId, 'Too many tool call iterations')
+    await db.insert(messages).values({
+      conversation_id: conversationId,
+      role: 'user',
+      content: userMessage,
+    })
+
+    try {
+      const responseText = await this.generateResponse(
+        userId,
+        userMessage,
+        conversationId,
+        subject,
+      )
+
+      const words = responseText.split(/\s+/)
+      for (const word of words) {
+        this.wsHub.sendToken(conversationId, `${word} `)
+      }
+
+      this.wsHub.sendDone(conversationId)
+    } catch (err) {
+      this.wsHub.sendError(conversationId, (err as Error).message)
+    }
+  }
+
+  async processText(
+    userId: string,
+    text: string,
+    conversationId: string,
+    subject: string,
+  ): Promise<string> {
+    const owner = await this.getConversationOwner(conversationId)
+    if (!owner || owner !== userId) {
+      throw new Error('forbidden')
+    }
+
+    await db.insert(messages).values({
+      conversation_id: conversationId,
+      role: 'user',
+      content: text,
+    })
+
+    return this.generateResponse(userId, text, conversationId, subject)
   }
 
   async listConversations(userId: string) {
@@ -208,7 +244,12 @@ export class ChatService {
     return db
       .select()
       .from(conversations)
-      .where(and(eq(conversations.userId, userId), eq(conversations.subject, subject)))
+      .where(
+        and(
+          eq(conversations.userId, userId),
+          eq(conversations.subject, subject),
+        ),
+      )
       .orderBy(desc(conversations.createdAt))
   }
 

@@ -1,39 +1,40 @@
+import { fastifyCors } from '@fastify/cors'
+import { fastifyRateLimit } from '@fastify/rate-limit'
+import { fastifySwagger } from '@fastify/swagger'
+import { fastifyWebsocket } from '@fastify/websocket'
+import ScalarApiReference from '@scalar/fastify-api-reference'
 import { fastify } from 'fastify'
 import {
+  jsonSchemaTransform,
   serializerCompiler,
   validatorCompiler,
-  jsonSchemaTransform,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod'
-import { fastifySwagger } from '@fastify/swagger'
-import { fastifyCors } from '@fastify/cors'
-import { fastifyWebsocket } from '@fastify/websocket'
-import { fastifyRateLimit } from '@fastify/rate-limit'
-import ScalarApiReference from '@scalar/fastify-api-reference'
 import { env } from './env'
-import { health } from './routes/health'
-import { authRegister } from './routes/auth-register'
-import { authLogin } from './routes/auth-login'
-import { authRefresh } from './routes/auth-refresh'
-import { getMe } from './routes/get-me'
-import { updateMe } from './routes/update-me'
-import { listConversations } from './routes/list-conversations'
-import { createConversation } from './routes/create-conversation'
-import { deleteConversation } from './routes/delete-conversation'
-import { getMessages } from './routes/get-messages'
-import { chatStream } from './routes/chat-stream'
-import { listMemories } from './routes/list-memories'
-import { deleteMemory } from './routes/delete-memory'
-import { WsHub } from './lib/ws'
+import { appContext } from './lib/app-context'
 import { GroqProvider } from './lib/llm/groq'
-import { Engine } from './lib/tools/engine'
-import { WebSearchTool } from './lib/tools/websearch'
 import { CalculatorTool } from './lib/tools/calculator'
+import { Engine } from './lib/tools/engine'
 import { NotesTool } from './lib/tools/notes'
 import { TasksTool } from './lib/tools/tasks'
 import { WeatherTool } from './lib/tools/weather'
+import { WebSearchTool } from './lib/tools/websearch'
+import { WsHub } from './lib/ws'
+import { authLogin } from './routes/auth-login'
+import { authRefresh } from './routes/auth-refresh'
+import { authRegister } from './routes/auth-register'
+import { chatStream } from './routes/chat-stream'
+import { createConversation } from './routes/create-conversation'
+import { deleteConversation } from './routes/delete-conversation'
+import { deleteMemory } from './routes/delete-memory'
+import { getMe } from './routes/get-me'
+import { getMessages } from './routes/get-messages'
+import { health } from './routes/health'
+import { listConversations } from './routes/list-conversations'
+import { listMemories } from './routes/list-memories'
+import { updateMe } from './routes/update-me'
+import { voice } from './routes/voice'
 import { ChatService } from './services/chat'
-import { appContext } from './lib/app-context'
 
 const app = fastify({
   logger: {
@@ -79,7 +80,10 @@ app.register(fastifyWebsocket)
 
 // Initialize services
 const wsHub = new WsHub()
-const groqProvider = new GroqProvider(env.GROQ_API_KEY, env.GEMINI_API_KEY || '')
+const groqProvider = new GroqProvider(
+  env.GROQ_API_KEY,
+  env.GEMINI_API_KEY || '',
+)
 const toolEngine = new Engine()
 
 toolEngine.register(new WebSearchTool())
@@ -111,6 +115,7 @@ app.register(getMessages)
 app.register(chatStream)
 app.register(listMemories)
 app.register(deleteMemory)
+app.register(voice)
 
 // Graceful shutdown
 const signals = ['SIGINT', 'SIGTERM'] as const
