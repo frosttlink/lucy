@@ -100,16 +100,8 @@ export function login(email: string, password: string) {
 }
 
 // Conversations
-export function listConversations(subject?: string) {
-  const qs = subject ? `?subject=${subject}` : ""
-  return request<Conversation[]>("GET", `/api/chat/conversations${qs}`)
-}
-
-export function createConversation(title: string, subject: string) {
-  return request<Conversation>("POST", "/api/chat/conversations", {
-    title,
-    subject,
-  })
+export function getMyConversation() {
+  return request<Conversation>("GET", "/api/chat/conversation")
 }
 
 export function deleteConversation(id: string) {

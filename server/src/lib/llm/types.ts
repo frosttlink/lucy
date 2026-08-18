@@ -21,3 +21,8 @@ export interface ToolDefinition {
   description: string
   parameters: Record<string, unknown>
 }
+
+export interface ChatOptions {
+  model?: string
+  max_tokens?: number
+}

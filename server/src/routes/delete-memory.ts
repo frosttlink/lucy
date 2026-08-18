@@ -1,9 +1,9 @@
-import { z } from 'zod'
+import { eq } from 'drizzle-orm'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { z } from 'zod'
 import { db } from '@/db'
 import { memories } from '@/db/schema'
 import { getUserId } from '@/lib/auth-middleware'
-import { eq } from 'drizzle-orm'
 
 export const deleteMemory: FastifyPluginAsyncZod = async (app) => {
   app.delete(
@@ -17,6 +17,8 @@ export const deleteMemory: FastifyPluginAsyncZod = async (app) => {
         }),
         response: {
           200: z.object({ status: z.string() }),
+          403: z.object({ message: z.string() }),
+          404: z.object({ message: z.string() }),
         },
       },
     },

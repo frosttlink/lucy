@@ -45,6 +45,10 @@ export class NotesTool implements Tool {
     }
   }
 
+  required() {
+    return ['action']
+  }
+
   async execute(params: ToolParams): Promise<string> {
     const action = (params.action as string)?.toLowerCase()
 
@@ -52,7 +56,8 @@ export class NotesTool implements Tool {
       case 'create': {
         const title = params.title as string
         const content = params.content as string
-        if (!title || !content) throw new Error('title and content are required')
+        if (!title || !content)
+          throw new Error('title and content are required')
 
         const note: Note = {
           id: generateId(),

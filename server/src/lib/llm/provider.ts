@@ -1,6 +1,15 @@
-import type { CompletionResponse, Message, ToolDefinition } from './types'
+import type {
+  ChatOptions,
+  CompletionResponse,
+  Message,
+  ToolDefinition,
+} from './types'
 
 export interface Provider {
-  chat(messages: Message[], tools: ToolDefinition[]): Promise<CompletionResponse>
+  chat(
+    messages: Message[],
+    tools: ToolDefinition[],
+    options?: ChatOptions,
+  ): Promise<CompletionResponse>
   createEmbedding(text: string): Promise<number[]>
 }

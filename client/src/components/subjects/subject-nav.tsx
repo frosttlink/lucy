@@ -1,12 +1,12 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import type { LucideIcon } from "lucide-react"
 import {
   BookOpenText, PenLine, BookMarked, Languages, Palette, Dumbbell,
   Sigma, FlaskConical, Atom, Leaf, ScrollText, Globe, Users, Brain,
-  Newspaper, Target, ChevronDown,
+  Newspaper, Target, ChevronDown, Info,
 } from "lucide-react"
 import { useChatStore } from "@/store/chat-store"
-import { useConversations } from "@/hooks/use-conversations"
 import { cn } from "@/lib/utils"
 import { SUBJECT_GROUPS } from "@/lib/subjects"
 
@@ -19,18 +19,10 @@ const iconMap: Record<string, LucideIcon> = {
 export function SubjectNav() {
   const activeSubject = useChatStore((s) => s.activeSubject)
   const setActiveSubject = useChatStore((s) => s.setActiveSubject)
-  const setActiveConversation = useChatStore((s) => s.setActiveConversation)
-  const { fetchConversations, createConversation } = useConversations()
   const [collapsedAreas, setCollapsedAreas] = useState<Set<string>>(new Set())
 
-  async function handleSelect(subjectId: string) {
+  function handleSelect(subjectId: string) {
     setActiveSubject(subjectId)
-    setActiveConversation(null)
-    await fetchConversations()
-    const conv = await createConversation()
-    if (conv) {
-      setActiveConversation(conv.id)
-    }
   }
 
   function toggleArea(area: string) {
@@ -66,19 +58,38 @@ export function SubjectNav() {
                   const Icon = iconMap[subject.icon] || BookOpenText
                   const isActive = activeSubject === subject.id
                   return (
-                    <button
+                    <div
                       key={subject.id}
-                      onClick={() => handleSelect(subject.id)}
                       className={cn(
-                        "flex items-center gap-2 w-full px-3 py-1.5 rounded-md text-sm transition-all duration-150 cursor-pointer",
+                        "flex items-center gap-1 rounded-md transition-all duration-150",
                         isActive
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                          ? "bg-sidebar-accent"
+                          : "hover:bg-sidebar-accent/50",
                       )}
                     >
-                      <Icon className={cn("size-4 shrink-0", subject.color)} />
-                      <span className="truncate">{subject.label}</span>
-                    </button>
+                      <button
+                        onClick={() => handleSelect(subject.id)}
+                        className={cn(
+                          "flex-1 flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer",
+                          isActive
+                            ? "text-sidebar-accent-foreground font-medium"
+                            : "text-sidebar-foreground/70 hover:text-sidebar-foreground",
+                        )}
+                      >
+                        <Icon className={cn("size-4 shrink-0", subject.color)} />
+                        <span className="truncate">{subject.label}</span>
+                      </button>
+                      <Link
+                        to={`/app/materia/${subject.id}`}
+                        className={cn(
+                          "p-1.5 rounded-md transition-colors shrink-0",
+                          "text-muted-foreground/50 hover:text-primary hover:bg-sidebar-accent/50",
+                        )}
+                        title={`Ver conteúdo de ${subject.label}`}
+                      >
+                        <Info className="size-3.5" />
+                      </Link>
+                    </div>
                   )
                 })}
               </div>

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Message } from '@/lib/llm/types'
 
 // Mock dependencies
@@ -25,6 +25,9 @@ vi.mock('@/env', () => ({
     GROQ_API_KEY: 'test-groq-key',
     GEMINI_API_KEY: 'test-gemini-key',
     CORS_ORIGIN: '*',
+    GROQ_MODEL: 'openai/gpt-oss-20b',
+    GROQ_VOICE_MODEL: 'openai/gpt-oss-120b',
+    GROQ_VOICE_MAX_TOKENS: 120,
   },
 }))
 

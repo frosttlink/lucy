@@ -1,22 +1,19 @@
-import { z } from 'zod'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { z } from 'zod'
 import { db } from '@/db'
 import { conversations } from '@/db/schema'
 import { getUserId } from '@/lib/auth-middleware'
+import { desc, eq } from 'drizzle-orm'
 
-export const createConversation: FastifyPluginAsyncZod = async (app) => {
-  app.post(
-    '/api/chat/conversations',
+export const getOrCreateConversation: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/api/chat/conversation',
     {
       schema: {
-        summary: 'Create a new conversation',
+        summary: 'Get or create the single conversation for this user',
         tags: ['Chat'],
-        body: z.object({
-          title: z.string().optional().default('New Conversation'),
-          subject: z.string().optional().default('general'),
-        }),
         response: {
-          201: z.object({
+          200: z.object({
             id: z.string(),
             userId: z.string(),
             title: z.string(),
@@ -31,14 +28,23 @@ export const createConversation: FastifyPluginAsyncZod = async (app) => {
       const userId = getUserId(request, reply)
       if (!userId) return
 
-      const { title, subject } = request.body
+      const [existing] = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.userId, userId))
+        .orderBy(desc(conversations.createdAt))
+        .limit(1)
+
+      if (existing) {
+        return existing
+      }
 
       const [conv] = await db
         .insert(conversations)
         .values({
           userId,
-          title: title || 'New Conversation',
-          subject: subject || 'general',
+          title: 'Minha conversa',
+          subject: 'general',
         })
         .returning()
 

@@ -1,9 +1,9 @@
-import { z } from 'zod'
+import { eq } from 'drizzle-orm'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { z } from 'zod'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { getUserId } from '@/lib/auth-middleware'
-import { eq } from 'drizzle-orm'
 
 export const updateMe: FastifyPluginAsyncZod = async (app) => {
   app.patch(
@@ -21,6 +21,7 @@ export const updateMe: FastifyPluginAsyncZod = async (app) => {
             email: z.string(),
             name: z.string(),
           }),
+          404: z.object({ message: z.string() }),
         },
       },
     },

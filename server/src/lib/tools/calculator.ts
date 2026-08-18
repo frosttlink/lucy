@@ -13,9 +13,14 @@ export class CalculatorTool implements Tool {
     return {
       expression: {
         type: 'string',
-        description: "The mathematical expression to evaluate (e.g., '2 + 2', '3 * 4', '2^10')",
+        description:
+          "The mathematical expression to evaluate (e.g., '2 + 2', '3 * 4', '2^10')",
       },
     }
+  }
+
+  required() {
+    return ['expression']
   }
 
   async execute(params: ToolParams): Promise<string> {

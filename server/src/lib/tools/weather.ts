@@ -29,13 +29,18 @@ export class WeatherTool implements Tool {
     return {
       location: {
         type: 'string',
-        description: "City name (e.g., 'London', 'New York', 'Tokyo') or coordinates (e.g., '51.5,-0.12')",
+        description:
+          "City name (e.g., 'London', 'New York', 'Tokyo') or coordinates (e.g., '51.5,-0.12')",
       },
       days: {
         type: 'number',
         description: 'Number of forecast days (1-7, default: 1)',
       },
     }
+  }
+
+  required() {
+    return ['location']
   }
 
   async execute(params: ToolParams): Promise<string> {
@@ -95,24 +100,39 @@ export class WeatherTool implements Tool {
     return JSON.stringify(result, null, 2)
   }
 
-  private async geocode(location: string): Promise<{ lat: number; lon: number; name: string }> {
+  private async geocode(
+    location: string,
+  ): Promise<{ lat: number; lon: number; name: string }> {
     // Check if it's coordinates
     const coordMatch = location.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/)
     if (coordMatch) {
-      return { lat: Number.parseFloat(coordMatch[1]), lon: Number.parseFloat(coordMatch[2]), name: location }
+      return {
+        lat: Number.parseFloat(coordMatch[1]),
+        lon: Number.parseFloat(coordMatch[2]),
+        name: location,
+      }
     }
 
     const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`
     const response = await fetch(geoUrl)
     if (!response.ok) throw new Error('geocoding failed')
     const data = (await response.json()) as {
-      results?: Array<{ latitude: number; longitude: number; name: string; country: string }>
+      results?: Array<{
+        latitude: number
+        longitude: number
+        name: string
+        country: string
+      }>
     }
 
     if (!data.results?.length) throw new Error('location not found')
 
     const r = data.results[0]
-    return { lat: r.latitude, lon: r.longitude, name: `${r.name}, ${r.country}` }
+    return {
+      lat: r.latitude,
+      lon: r.longitude,
+      name: `${r.name}, ${r.country}`,
+    }
   }
 
   private weatherCodeToCondition(code: number): string {

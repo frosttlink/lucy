@@ -2,9 +2,11 @@ import { useEffect, useRef } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkBreaks from "remark-breaks"
+import rehypeHighlight from "rehype-highlight"
 import type { Message } from "@/types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { Sparkles } from "lucide-react"
 
 interface MessageListProps {
   messages: Message[]
@@ -21,8 +23,11 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
-        <div className="text-center max-w-md">
-          <p className="text-lg text-muted-foreground mb-2">
+        <div className="text-center max-w-md space-y-3">
+          <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-primary/10 galaxy-glow mx-auto">
+            <Sparkles className="size-6 text-primary" />
+          </div>
+          <p className="text-lg font-medium text-foreground/80">
             Comece uma conversa!
           </p>
           <p className="text-sm text-muted-foreground/60">
@@ -49,15 +54,18 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
               className={cn(
                 "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
                 msg.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-br-md"
-                  : "bg-card border border-border rounded-bl-md",
+                  ? "bg-primary text-primary-foreground rounded-br-md shadow-lg shadow-primary/10"
+                  : "glass rounded-bl-md",
               )}
             >
               {msg.role === "user" ? (
                 <p className="whitespace-pre-wrap">{msg.content}</p>
               ) : (
                 <div className="markdown-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
+                    rehypePlugins={[rehypeHighlight]}
+                  >
                     {msg.content}
                   </ReactMarkdown>
                 </div>
@@ -67,7 +75,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
         ))}
         {isStreaming && (
           <div className="flex justify-start">
-            <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
+            <div className="glass rounded-2xl rounded-bl-md px-4 py-3">
               <span className="inline-flex gap-1">
                 <span className="size-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                 <span className="size-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />

@@ -5,18 +5,18 @@ describe('chatStore', () => {
   beforeEach(() => {
     useChatStore.setState({
       activeSubject: 'portuguese',
-      activeConversationId: null,
-      conversations: [],
+      conversationId: null,
       isStreaming: false,
+      isInitialized: false,
     })
   })
 
   it('has default state', () => {
     const state = useChatStore.getState()
     expect(state.activeSubject).toBe('portuguese')
-    expect(state.activeConversationId).toBeNull()
-    expect(state.conversations).toEqual([])
+    expect(state.conversationId).toBeNull()
     expect(state.isStreaming).toBe(false)
+    expect(state.isInitialized).toBe(false)
   })
 
   it('sets active subject', () => {
@@ -24,51 +24,14 @@ describe('chatStore', () => {
     expect(useChatStore.getState().activeSubject).toBe('math')
   })
 
-  it('sets active conversation', () => {
-    useChatStore.getState().setActiveConversation('conv-1')
-    expect(useChatStore.getState().activeConversationId).toBe('conv-1')
+  it('sets conversation id', () => {
+    useChatStore.getState().setConversationId('conv-1')
+    expect(useChatStore.getState().conversationId).toBe('conv-1')
   })
 
-  it('adds conversation', () => {
-    const conv = {
-      id: 'conv-1',
-      user_id: 'user-1',
-      title: 'Test',
-      subject: 'math',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    useChatStore.getState().addConversation(conv)
-    expect(useChatStore.getState().conversations).toHaveLength(1)
-  })
-
-  it('removes conversation', () => {
-    const conv = {
-      id: 'conv-1',
-      user_id: 'user-1',
-      title: 'Test',
-      subject: 'math',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    useChatStore.getState().addConversation(conv)
-    useChatStore.getState().removeConversation('conv-1')
-    expect(useChatStore.getState().conversations).toHaveLength(0)
-  })
-
-  it('clears active conversation when removed', () => {
-    const conv = {
-      id: 'conv-1',
-      user_id: 'user-1',
-      title: 'Test',
-      subject: 'math',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    useChatStore.getState().addConversation(conv)
-    useChatStore.getState().setActiveConversation('conv-1')
-    useChatStore.getState().removeConversation('conv-1')
-    expect(useChatStore.getState().activeConversationId).toBeNull()
+  it('sets initialized', () => {
+    useChatStore.getState().setInitialized(true)
+    expect(useChatStore.getState().isInitialized).toBe(true)
   })
 
   it('returns subject label', () => {

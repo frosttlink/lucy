@@ -87,8 +87,8 @@ export class WsHub {
     this.broadcast(conversationId, msg)
   }
 
-  sendDone(conversationId: string) {
-    const msg = JSON.stringify({ type: 'done' })
+  sendDone(conversationId: string, fullContent?: string) {
+    const msg = JSON.stringify({ type: 'done', content: fullContent })
     this.broadcast(conversationId, msg)
   }
 

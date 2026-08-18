@@ -1,9 +1,32 @@
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { env } from '@/env'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const SCRIPT_PATH = resolve(__dirname, '../../scripts/tts.py')
+
+// O tsup empacota tudo em dist/server.js, o que muda o __dirname em
+// relação ao fonte (src/lib/tts.ts). Procura o script tts.py em todos
+// os caminhos plausíveis (dev, build local e Docker) e usa o primeiro
+// que existir.
+function findTtsScript(): string {
+  const candidates = [
+    resolve(process.cwd(), 'scripts/tts.py'),
+    resolve(process.cwd(), 'server/scripts/tts.py'),
+    resolve(__dirname, '../../scripts/tts.py'),
+    resolve(__dirname, '../../../../server/scripts/tts.py'),
+    resolve(__dirname, '../../../server/scripts/tts.py'),
+    resolve(__dirname, '../scripts/tts.py'),
+  ]
+  for (const path of candidates) {
+    if (existsSync(path)) return path
+  }
+  return candidates[0]
+}
+
+const SCRIPT_PATH = findTtsScript()
+const PYTHON = env.TTS_PYTHON || 'python3'
 
 const VOICES: Record<string, string> = {
   'pt-BR': 'pt-BR-FranciscaNeural',
@@ -20,7 +43,7 @@ export async function textToSpeech(
   if (format === 'wav') args.push('--wav')
 
   return new Promise((resolve, reject) => {
-    const proc = spawn('python3', args)
+    const proc = spawn(PYTHON, args)
     const chunks: Buffer[] = []
     const errors: string[] = []
 

@@ -1,9 +1,9 @@
-import { z } from 'zod'
+import { eq } from 'drizzle-orm'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { z } from 'zod'
 import { db } from '@/db'
 import { sessions } from '@/db/schema'
 import { signAccessToken, signRefreshToken, verifyToken } from '@/lib/jwt'
-import { eq } from 'drizzle-orm'
 
 export const authRefresh: FastifyPluginAsyncZod = async (app) => {
   app.post(
@@ -20,6 +20,7 @@ export const authRefresh: FastifyPluginAsyncZod = async (app) => {
             access_token: z.string(),
             refresh_token: z.string(),
           }),
+          401: z.object({ message: z.string() }),
         },
       },
     },

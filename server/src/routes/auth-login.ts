@@ -1,10 +1,10 @@
-import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
-import { db } from '@/db'
-import { users, sessions } from '@/db/schema'
-import { signAccessToken, signRefreshToken } from '@/lib/jwt'
 import { eq } from 'drizzle-orm'
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { z } from 'zod'
+import { db } from '@/db'
+import { sessions, users } from '@/db/schema'
+import { signAccessToken, signRefreshToken } from '@/lib/jwt'
 
 export const authLogin: FastifyPluginAsyncZod = async (app) => {
   app.post(
@@ -27,6 +27,7 @@ export const authLogin: FastifyPluginAsyncZod = async (app) => {
               name: z.string(),
             }),
           }),
+          401: z.object({ message: z.string() }),
         },
       },
     },

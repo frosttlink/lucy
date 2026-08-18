@@ -24,16 +24,15 @@ import { authLogin } from './routes/auth-login'
 import { authRefresh } from './routes/auth-refresh'
 import { authRegister } from './routes/auth-register'
 import { chatStream } from './routes/chat-stream'
-import { createConversation } from './routes/create-conversation'
 import { deleteConversation } from './routes/delete-conversation'
 import { deleteMemory } from './routes/delete-memory'
 import { getMe } from './routes/get-me'
 import { getMessages } from './routes/get-messages'
+import { getOrCreateConversation } from './routes/get-or-create-conversation'
 import { health } from './routes/health'
-import { listConversations } from './routes/list-conversations'
 import { listMemories } from './routes/list-memories'
 import { updateMe } from './routes/update-me'
-import { voice } from './routes/voice'
+import { voice, warmGreeting } from './routes/voice'
 import { ChatService } from './services/chat'
 
 const app = fastify({
@@ -108,8 +107,7 @@ app.register(authLogin)
 app.register(authRefresh)
 app.register(getMe)
 app.register(updateMe)
-app.register(listConversations)
-app.register(createConversation)
+app.register(getOrCreateConversation)
 app.register(deleteConversation)
 app.register(getMessages)
 app.register(chatStream)
@@ -128,7 +126,10 @@ for (const signal of signals) {
 }
 
 // Startup
-app.listen({ port: env.PORT, host: '0.0.0.0' }).then(() => {
+app.listen({ port: env.PORT, host: '0.0.0.0' }).then(async () => {
   app.log.info(`Lucy API running on http://localhost:${env.PORT}`)
   app.log.info(`Docs available at http://localhost:${env.PORT}/docs`)
+  // Gera o greeting antes do primeiro boot do ESP32.
+  await warmGreeting()
+  app.log.info('Greeting de voz pré-aquecido')
 })

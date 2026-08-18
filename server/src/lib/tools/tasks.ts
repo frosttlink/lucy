@@ -41,6 +41,10 @@ export class TasksTool implements Tool {
     }
   }
 
+  required() {
+    return ['action']
+  }
+
   async execute(params: ToolParams): Promise<string> {
     const action = (params.action as string)?.toLowerCase()
 

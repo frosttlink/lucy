@@ -15,12 +15,57 @@ Vozes disponíveis (pt-BR):
 """
 
 import sys
+import io
 import asyncio
+import array
+import wave
 import subprocess
 import tempfile
 import os
 import shutil
 import edge_tts
+
+
+def _trim_silence(data: bytes, threshold: int = 400) -> bytes:
+    """Remove o silêncio inicial/final que o edge-tts adiciona e regrava
+    o WAV com cabeçalho correto (o ffmpeg em pipe grava tamanhos
+    placeholder inválidos no RIFF/data). Sem isso as respostas excedem
+    o limite de RAM do ESP32 (~96KB) e o áudio é cortado."""
+    try:
+        src = wave.open(io.BytesIO(data), "rb")
+        if src.getsampwidth() != 2 or src.getnchannels() != 1:
+            src.close()
+            return data
+        rate = src.getframerate()
+        frames = array.array("h", src.readframes(src.getnframes()))
+        src.close()
+        if len(frames) == 0:
+            return data
+
+        window = max(1, rate // 40)
+        absv = [abs(x) for x in frames]
+
+        start = 0
+        while start + window < len(frames) and max(absv[start:start + window]) < threshold:
+            start += window
+        end = len(frames)
+        while end - window > start and max(absv[end - window:end]) < threshold:
+            end -= window
+
+        margin = rate // 15
+        start = max(0, start - margin)
+        end = min(len(frames), end + margin)
+
+        out = io.BytesIO()
+        dst = wave.open(out, "wb")
+        dst.setnchannels(1)
+        dst.setsampwidth(2)
+        dst.setframerate(rate)
+        dst.writeframes(array.array("h", frames[start:end]).tobytes())
+        dst.close()
+        return out.getvalue()
+    except Exception:
+        return data
 
 
 async def main() -> None:
@@ -55,20 +100,22 @@ async def main() -> None:
                     f.write(chunk["data"])
 
         try:
-            subprocess.run(
+            proc = subprocess.run(
                 [
                     ffmpeg_path, "-y",
                     "-i", mp3_path,
                     "-f", "wav",
                     "-acodec", "pcm_s16le",
-                    "-ar", "16000",
+                    "-ar", "22050",
                     "-ac", "1",
                     "pipe:1",
                 ],
-                stdout=sys.stdout.buffer,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 check=True,
             )
+            sys.stdout.buffer.write(_trim_silence(proc.stdout))
+            sys.stdout.buffer.flush()
         finally:
             os.unlink(mp3_path)
     else:

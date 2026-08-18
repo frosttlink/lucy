@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Send, Sparkles } from "lucide-react"
+import { Send, Loader2 } from "lucide-react"
 
 interface MessageInputProps {
   onSend: (content: string) => void
@@ -41,34 +41,34 @@ export function MessageInput({ onSend, disabled, subjectLabel }: MessageInputPro
   }
 
   return (
-    <div className="border-t border-border bg-background p-4">
+    <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm p-4">
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-end gap-2 bg-card border border-border rounded-xl p-2 focus-within:ring-2 focus-within:ring-ring transition-all">
+        <div className="flex items-end gap-2 glass rounded-xl p-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/30 transition-all">
           <textarea
             ref={textareaRef}
             value={content}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            placeholder={`Pergunte sobre ${subjectLabel}...`}
+            placeholder={disabled ? "Lucy está pensando..." : `Pergunte sobre ${subjectLabel}...`}
             rows={1}
             disabled={disabled}
-            className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-50 max-h-[120px]"
+            className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none disabled:opacity-50 max-h-[120px]"
           />
           <Button
             size="sm"
             onClick={handleSubmit}
             disabled={!content.trim() || disabled}
-            className="shrink-0"
+            className="shrink-0 galaxy-glow-hover"
           >
             {disabled ? (
-              <Sparkles className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
               <Send className="size-4" />
             )}
           </Button>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground text-center">
-          Pressione Enter para enviar · Shift+Enter para nova linha
+        <p className="mt-1 text-xs text-muted-foreground/50 text-center">
+          Enter para enviar · Shift+Enter para nova linha
         </p>
       </div>
     </div>

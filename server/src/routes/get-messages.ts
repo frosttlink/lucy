@@ -1,9 +1,9 @@
-import { z } from 'zod'
+import { asc, eq } from 'drizzle-orm'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { z } from 'zod'
 import { db } from '@/db'
-import { messages, conversations } from '@/db/schema'
+import { conversations, messages } from '@/db/schema'
 import { getUserId } from '@/lib/auth-middleware'
-import { eq, asc } from 'drizzle-orm'
 
 export const getMessages: FastifyPluginAsyncZod = async (app) => {
   app.get(
@@ -26,6 +26,8 @@ export const getMessages: FastifyPluginAsyncZod = async (app) => {
               createdAt: z.date(),
             }),
           ),
+          403: z.object({ message: z.string() }),
+          404: z.object({ message: z.string() }),
         },
       },
     },

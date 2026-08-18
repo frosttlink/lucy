@@ -2,11 +2,13 @@ import { getAccessToken } from "./api"
 import type { WSIncomingEvent, WSOutgoingMessage } from "@/types"
 
 type EventHandler = (event: WSIncomingEvent) => void
+type CloseHandler = (code: number, reason: string) => void
 
 export class ChatSocket {
   private ws: WebSocket | null = null
   private conversationId: string
   private handlers: Set<EventHandler> = new Set()
+  private closeHandler: CloseHandler | null = null
   private reconnectAttempts = 0
   private maxReconnect = 5
   private shouldReconnect = true
@@ -48,7 +50,12 @@ export class ChatSocket {
     this.ws.onclose = (event) => {
       // Don't reconnect on auth errors
       if (event.code === 4001 || event.code === 4002 || event.code === 4003) {
+        this.closeHandler?.(event.code, event.reason)
         return
+      }
+      // Notify close handler for unexpected closures (not intentional disconnects)
+      if (this.shouldReconnect) {
+        this.closeHandler?.(event.code, event.reason)
       }
       if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnect) {
         this.reconnectAttempts++
@@ -72,6 +79,11 @@ export class ChatSocket {
   onEvent(handler: EventHandler) {
     this.handlers.add(handler)
     return () => this.handlers.delete(handler)
+  }
+
+  onClose(handler: CloseHandler) {
+    this.closeHandler = handler
+    return () => { this.closeHandler = null }
   }
 
   disconnect() {

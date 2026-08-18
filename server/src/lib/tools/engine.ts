@@ -15,6 +15,7 @@ export interface Tool {
   name(): string
   description(): string
   parameters(): Record<string, unknown>
+  required(): string[]
   execute(params: ToolParams): Promise<string>
 }
 
@@ -36,6 +37,7 @@ export class Engine {
       parameters: {
         type: 'object',
         properties: t.parameters(),
+        required: t.required(),
       },
     }))
   }
@@ -43,21 +45,36 @@ export class Engine {
   async execute(name: string, inputJSON: string): Promise<ToolResult> {
     const tool = this.tools.get(name)
     if (!tool) {
-      return { tool_name: name, success: false, output: '', error: `tool '${name}' not found` }
+      return {
+        tool_name: name,
+        success: false,
+        output: '',
+        error: `tool '${name}' not found`,
+      }
     }
 
     let params: ToolParams
     try {
       params = JSON.parse(inputJSON)
     } catch {
-      return { tool_name: name, success: false, output: '', error: 'invalid params JSON' }
+      return {
+        tool_name: name,
+        success: false,
+        output: '',
+        error: 'invalid params JSON',
+      }
     }
 
     try {
       const output = await tool.execute(params)
       return { tool_name: name, success: true, output }
     } catch (err) {
-      return { tool_name: name, success: false, output: '', error: (err as Error).message }
+      return {
+        tool_name: name,
+        success: false,
+        output: '',
+        error: (err as Error).message,
+      }
     }
   }
 }

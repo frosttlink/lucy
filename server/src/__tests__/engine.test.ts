@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { Engine } from '@/lib/tools/engine'
+import { describe, expect, it } from 'vitest'
 import { CalculatorTool } from '@/lib/tools/calculator'
+import { Engine } from '@/lib/tools/engine'
 
 describe('Engine', () => {
   it('registers and retrieves tools', () => {
@@ -19,6 +19,15 @@ describe('Engine', () => {
     const defs = engine.definitionsForLLM()
     expect(defs).toHaveLength(1)
     expect(defs[0].name).toBe('calculator')
+  })
+
+  it('includes required params in LLM definitions', () => {
+    const engine = new Engine()
+    engine.register(new CalculatorTool())
+
+    const defs = engine.definitionsForLLM()
+    expect(defs[0].parameters.required).toEqual(['expression'])
+    expect(defs[0].parameters.properties).toHaveProperty('expression')
   })
 
   it('executes a registered tool', async () => {

@@ -16,6 +16,10 @@ export class WebSearchTool implements Tool {
     }
   }
 
+  required() {
+    return ['query']
+  }
+
   async execute(params: ToolParams): Promise<string> {
     const query = params.query as string | undefined
     if (!query?.trim()) throw new Error('query is required')

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { conversations, memories, messages } from '@/db/schema'
+import { env } from '@/env'
 import type { GroqProvider } from '@/lib/llm/groq'
 import type { Message } from '@/lib/llm/types'
 import type { Engine } from '@/lib/tools/engine'
@@ -34,7 +35,8 @@ Rules:
 
 You have contextual memory — use past information when relevant.
 
-When you need more information to help the user, ask follow-up questions naturally.
+Always answer the user's question directly and completely first, before asking anything back.
+Only ask a follow-up question if it is truly necessary to help, and never answer with a question alone.
 
 If the user wants to do something that requires a tool (search the web, save notes, create tasks, calculate something, or check weather), use the available tools. Don't mention the tools explicitly to the user — just do what's needed.`
 
@@ -87,6 +89,7 @@ export class ChatService {
     text: string,
     conversationId: string,
     subject: string,
+    voice = false,
   ): Promise<string> {
     const history = await db
       .select()
@@ -99,14 +102,26 @@ export class ChatService {
       .from(memories)
       .where(eq(memories.userId, userId))
       .orderBy(desc(memories.createdAt))
-      .limit(5)
+      .limit(voice ? 0 : 5)
 
     const llmMessages: Message[] = []
 
     const subjectPrompt = SUBJECT_PROMPTS[subject] || SUBJECT_PROMPTS.general
+    let systemContent = `${subjectPrompt}\n\n${SYSTEM_PROMPT}`
+
+    if (voice) {
+      systemContent += `\n\nIMPORTANT: This answer will be READ ALOUD by a voice assistant, so:
+- Reply in 1 or 2 short spoken sentences (maximum ~20 words).
+- No markdown, headings, bold, lists, symbols, or emojis.
+- Do not suggest study plans and do not mention ENEM unless the question is directly about them.
+- Speak naturally and completely, like a friend talking out loud.
+- Answer the question immediately; never respond with questions or ask for clarification.
+- You have NO tools available in voice mode. Never attempt to use web_search, calculator, or any other tool, and never emit function-call markup.`
+    }
+
     llmMessages.push({
       role: 'system',
-      content: `${subjectPrompt}\n\n${SYSTEM_PROMPT}`,
+      content: systemContent,
     })
 
     if (memRows.length > 0) {
@@ -116,7 +131,7 @@ export class ChatService {
       llmMessages.push({ role: 'system', content: memContext })
     }
 
-    const start = Math.max(0, history.length - 30)
+    const start = Math.max(0, history.length - (voice ? 4 : 30))
     for (const h of history.slice(start)) {
       llmMessages.push({
         role: h.role as 'user' | 'assistant',
@@ -124,13 +139,21 @@ export class ChatService {
       })
     }
 
-    llmMessages.push({ role: 'user', content: text })
-
-    const toolDefs = this.toolEngine.definitionsForLLM()
+    const toolDefs = voice ? [] : this.toolEngine.definitionsForLLM()
+    const options = voice
+      ? { model: env.GROQ_VOICE_MODEL, max_tokens: env.GROQ_VOICE_MAX_TOKENS }
+      : {}
     const maxIterations = 5
 
     for (let i = 0; i < maxIterations; i++) {
-      const response = await this.llm.chat(llmMessages, toolDefs)
+      let response: Awaited<ReturnType<GroqProvider['chat']>>
+      try {
+        response = await this.llm.chat(llmMessages, toolDefs, options)
+      } catch {
+        // Se a geração de tool call falhar (ex.: Groq tool_use_failed),
+        // responde sem tools para a Lucy nunca ficar sem resposta.
+        response = await this.llm.chat(llmMessages, [], options)
+      }
 
       if (response.tool_calls.length > 0) {
         llmMessages.push({
@@ -150,14 +173,20 @@ export class ChatService {
         continue
       }
 
-      if (response.content) {
+      // Caso o modelo vaze o formato legado "<function=...>" como texto.
+      const cleanContent = response.content
+        .replace(/<\/?function=?[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+      if (cleanContent) {
         await db.insert(messages).values({
           conversationId,
           role: 'assistant',
-          content: response.content,
+          content: cleanContent,
         })
 
-        const combined = `${text} ${response.content}`
+        const combined = `${text} ${cleanContent}`
         if (combined.split(/\s+/).length >= 10) {
           await db.insert(memories).values({
             userId,
@@ -167,7 +196,7 @@ export class ChatService {
           })
         }
 
-        return response.content
+        return cleanContent
       }
     }
 
@@ -206,7 +235,7 @@ export class ChatService {
         this.wsHub.sendToken(conversationId, `${word} `)
       }
 
-      this.wsHub.sendDone(conversationId)
+      this.wsHub.sendDone(conversationId, responseText)
     } catch (err) {
       this.wsHub.sendError(conversationId, (err as Error).message)
     }
@@ -217,6 +246,7 @@ export class ChatService {
     text: string,
     conversationId: string,
     subject: string,
+    voice = false,
   ): Promise<string> {
     const owner = await this.getConversationOwner(conversationId)
     if (!owner || owner !== userId) {
@@ -229,7 +259,7 @@ export class ChatService {
       content: text,
     })
 
-    return this.generateResponse(userId, text, conversationId, subject)
+    return this.generateResponse(userId, text, conversationId, subject, voice)
   }
 
   async listConversations(userId: string) {
@@ -240,17 +270,26 @@ export class ChatService {
       .orderBy(desc(conversations.createdAt))
   }
 
-  async listConversationsBySubject(userId: string, subject: string) {
-    return db
+  async getOrCreateConversation(userId: string) {
+    const [existing] = await db
       .select()
       .from(conversations)
-      .where(
-        and(
-          eq(conversations.userId, userId),
-          eq(conversations.subject, subject),
-        ),
-      )
+      .where(eq(conversations.userId, userId))
       .orderBy(desc(conversations.createdAt))
+      .limit(1)
+
+    if (existing) return existing
+
+    const [conv] = await db
+      .insert(conversations)
+      .values({
+        userId,
+        title: 'Minha conversa',
+        subject: 'general',
+      })
+      .returning()
+
+    return conv
   }
 
   async createConversation(userId: string, title: string, subject: string) {
